@@ -1,0 +1,38 @@
+/build*/
+/dist/
+*.user
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+
+# Пользовательские данные и локальные результаты проверок.
+zarnitsa.json
+secrets.json
+zarnitsa-data/
+*.log
+*.jsonl
+*.db
+*.sqlite
+*.sqlite3
+
+# Артефакты поставки и сборки не входят в исходный репозиторий.
+*.deb
+*.tar.gz
+*.zip
+*.o
+*.a
+*.so
+*.so.*
+
+# TLS-ключи не публикуются, кроме явно общедоступных тестовых fixtures.
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.csr
+.env
+.env.*
+!/tests/data/test-cert.pem
+!/tests/data/test-key.pem

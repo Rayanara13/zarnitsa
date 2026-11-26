@@ -1,0 +1,25 @@
+#!/bin/bash
+# dpkg владеет payload напрямую; tar install.sh и apt здесь не вызываются.
+set -euo pipefail
+
+case "${1:-}" in
+    configure)
+        kit=/opt/zarnitsa-deb
+        [[ -f $kit/DEBIAN_PACKAGE && ! -L $kit/DEBIAN_PACKAGE ]] || {
+            printf '%s\n' 'Ошибка: нет обычного DEBIAN_PACKAGE у dpkg-комплекта Зарницы.' >&2
+            exit 1
+        }
+        # configure-icmp проверяет владельцев/права ВСЕГО пути, manifest и static ELF.
+        # В контейнере/на nosuid-ФС file caps могут быть недоступны: это явный fallback,
+        # а не повод менять sysctl, setuid, ставить пакеты или выдавать права Qt-процессу.
+        if env -u LD_LIBRARY_PATH -u LD_PRELOAD -u LD_AUDIT "$kit/configure-icmp.sh" --enable; then
+            printf '%s\n' 'Зарница: настроен отдельный ICMP-помощник; Qt работает без capabilities.'
+        else
+            printf '%s\n' \
+                'Предупреждение: пакет установлен, но capability ICMP-помощника не настроена.' \
+                'ICMP может требовать штатный системный ping. TCP/HTTP и остальные режимы доступны.' \
+                'Для повторной проверки: sudo /opt/zarnitsa-deb/configure-icmp.sh --enable' >&2
+        fi
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure) ;;
+esac

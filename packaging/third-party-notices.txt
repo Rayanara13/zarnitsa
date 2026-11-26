@@ -1,0 +1,110 @@
+Зарница — уведомления о сторонних компонентах
+
+Лицензия самой программы находится в LICENSE, если этот файл предоставлен
+автором. Включение исходников программы для изучения, пересборки и перелинковки
+не меняет её лицензию автоматически. Ни этот текст, ни BUILD.txt не являются
+заявлением о сертификации релиза или юридическим заключением.
+
+ТОЧНЫЙ СОСТАВ
+runtime/MANIFEST.tsv содержит для каждого runtime ELF, Qt plugin и файла xkb
+имя binary/source dpkg-пакета, обе версии, исходный путь и SHA-256. Относительные
+ссылки указаны отдельно в тех же строках. licenses/runtime/PACKAGES.tsv содержит
+Source/Version и команду получения соответствующего исходного пакета из заранее
+настроенных официальных репозиториев Astra. Эти команды сборщик НЕ выполняет.
+Ни apt, ни загрузка исходников не запускаются при установке комплекта.
+
+licenses/runtime/<binary-package>/copyright — неизменённые copyright-файлы
+поставщика каждого включённого пакета (либо распакованный copyright.gz).
+licenses/runtime/common-licenses/ содержит полные общие тексты, включая
+LGPL-2.1, LGPL-3, GPL-2, GPL-3 и permissive-лицензии. Условия конкретного файла,
+исключения и держатели прав указаны в соответствующем copyright, а не выводятся
+из одного названия пакета. Лицензии встроенных Golos Text и JetBrains Mono —
+в licenses/fonts/. Собственные пользовательские ключи/сертификаты не включены.
+
+QT
+Qt 5.15.2 и plugins связаны ДИНАМИЧЕСКИ, не встроены в основной executable.
+Модули Qt имеют LGPL/GPL/commercial варианты лицензирования; конкретные условия
+для включённых файлов приведены в copyright их dpkg-пакетов и общих текстах.
+Можно заменить комплектные Qt и plugins совместимой системной сборкой Qt 5.15:
+запустить bin/zarnitsa напрямую без bundled LD_LIBRARY_PATH/QT_PLUGIN_PATH либо
+использовать системный runtime через launcher. Не смешивайте несовместимые Qt.
+
+Официальные исходники upstream Qt именно 5.15.2:
+  https://code.qt.io/cgit/qt/qtbase.git/tree/?h=v5.15.2
+  https://download.qt.io/archive/qt/5.15/5.15.2/submodules/
+При наличии дополнительных модулей используются соответствующие репозитории
+https://code.qt.io/cgit/qt/ с тем же тегом v5.15.2 (qtsvg, qtimageformats и т.п.).
+ВАЖНО: Astra-пакет 5.15.2+dfsg-0astra64 содержит изменения дистрибутива и НЕ
+объявляется тождественным чистому upstream v5.15.2. Точные соответствующие
+исходники, включая патчи, нужны из Source/Version в PACKAGES.tsv; например:
+  apt-get source 'qtbase-opensource-src=5.15.2+dfsg-0astra64'
+Сам Qt source tree велик и автоматически не скачивается, в комплект не включён.
+
+ОСТАЛЬНЫЕ БИБЛИОТЕКИ И УТИЛИТЫ
+Включаются рекурсивно разрешённые зависимости приложения и ВСЕХ выбранных
+plugins, libstdc++/libgcc и явно libssl.so.1.1/libcrypto.so.1.1 (Qt делает dlopen).
+OpenSSL, XCB/X11/xkb, ICU, HarfBuzz, FreeType, Fontconfig, DBus, libcap, iputils
+и прочие фактически включённые компоненты перечислены в манифесте; список
+здесь не заменяет точную ведомость и copyright. Исходники upstream OpenSSL
+1.1.1w доступны у проекта OpenSSL; Astra-изменения — из исходного пакета с
+точной версией PACKAGES.tsv, а не из произвольно более новой upstream-сборки.
+
+runtime/bin/{ping,openssl,setcap,getcap} — копии 0755 без setuid/capabilities.
+Наличие ping само по себе не даёт raw socket при ping_group_range='1 0'.
+Root-установщик может дать cap_net_raw только защищённому bin/zarnitsa-icmp;
+никаких автоматических sysctl/firewall изменений не производится.
+
+GLIBC И СТАТИЧЕСКИЙ ICMP HELPER
+Общие glibc/loader/libc/libpthread/libm/libdl/librt/libresolv/libnss/libcrypt
+НЕ переносятся; используется системный ABI glibc 2.28 Astra. Также НЕ включены
+системные Astra libgost/libparsec-base3/libpdp: не подменяем библиотеки базовой
+ОС и её MAC/policy-защиты. Их наличие с точными версиями проверено в bare ubi17;
+версии и digest проверенного образа записаны в runtime/SYSTEM-LIBRARIES.tsv и
+BUILD.txt. .deb имеет явные зависимости на эти пакеты, launcher проверяет ELF
+зависимости без apt. Они не объявляются входящими в наш runtime.
+Фактические версии build/bare образа не являются минимальными Depends. Для
+1.0.0 минимумы подтверждены forced-bundled smoke на живой Astra SE 1.7.6:
+  libgost >= 2.0.2-5+ci4
+  libparsec-base3 >= 3.4+ci71
+  libpdp >= 3.4+ci71
+Проверены ldd -r, offscreen GUI, локальный сертификат, HTTPS API и pinned HTTPS
+проба со статусом Up; загружены именно комплектные Qt/OpenSSL. Системный Qt
+5.15.2+dfsg-0astra53 присутствовал, но в этом тесте НЕ использовался.
+Свидетельство 26.11.2026: workspace/lab-bundled-candidate1/result.json и remote.log
+для кандидата d213e4426d31-20261126T103359Z-dirty. В SYSTEM-LIBRARIES.tsv и BUILD.txt
+фактические build/bare версии, минимумы и основания проверки записаны отдельно.
+Тест на живой Astra был БЕЗ sudo: МКЦ и реальные file capabilities на ней НЕ
+проверялись. Контейнерный root helper/capability smoke не заменяет эту проверку.
+Однако отдельный
+bin/zarnitsa-icmp собран статически и содержит runtime glibc/libstdc++/libgcc.
+Поэтому их copyright и LGPL/GPL/runtime-exception тексты тоже включены.
+В source/relink-zarnitsa-icmp/ сохранены наши объектные файлы для перелинковки;
+полные исходники самой программы — source/zarnitsa-1.0.0.tar.gz. Исходники
+самих библиотек/toolchain не включены. Их точные дистрибутивные Source/Version
+смотрите в PACKAGES.tsv; glibc upstream 2.28 и GCC upstream 8.3.0 доступны у GNU:
+  https://ftp.gnu.org/gnu/glibc/glibc-2.28.tar.xz
+  https://ftp.gnu.org/gnu/gcc/gcc-8.3.0/gcc-8.3.0.tar.xz
+Эти upstream-архивы не подменяют соответствующие патченные исходники Astra.
+
+ГРАНИЦЫ ОФЛАЙН-КОМПЛЕКТА
+Готовые бинарники и runtime предназначены для работы без apt и без сети на
+совместимой установленной Astra 1.7. Системные glibc, shell/coreutils, X11 server
+для окна, драйверы и доверенные CA остаются частью ОС. Build dependencies,
+полные исходники сторонних библиотек и Docker image не включены. Полностью
+офлайн-пересборка и побитовая воспроизводимость НЕ обещаются. Наличие ссылок
+на upstream и копий license notices само по себе не является утверждением,
+что все возможные обязательства по распространению исходников исполнены.
+
+ДОСТУПНОСТЬ ТОЧНЫХ СТОРОННИХ ИСХОДНИКОВ
+26.11.2026 проверены настроенные официальные frozen 1.7.11 repository-base и
+repository-extended на download.astralinux.ru. deb-src там не настроен;
+проверенные main/source/Sources.xz и Sources.gz вернули HTTP 404. Проверенные
+pool URL для qtbase-opensource-src_5.15.2+dfsg-0astra64.dsc и
+libcap2_2.25-2.astra1.dsc также вернули 404, просмотр каталогов — 403.
+Это результаты конкретных проверок, а НЕ доказательство отсутствия исходников
+у правообладателя или во всех репозиториях. Companion thirdparty-source архив
+НЕ объявляется подготовленным; чистым upstream он не подменялся.
+Комплект пока является ЛОКАЛЬНОЙ тестовой сборкой для внутреннего использования,
+не опубликован и НЕ объявляется лицензионно готовым для внешнего распространения.
+Письменное предложение исходников на 3 года не выдаётся без обеспеченного
+хранилища соответствующих точных исходников и обязательств правообладателя.

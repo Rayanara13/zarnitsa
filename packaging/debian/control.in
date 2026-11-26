@@ -1,0 +1,15 @@
+Package: zarnitsa
+Version: @VERSION@
+Section: net
+Priority: optional
+Architecture: amd64
+Maintainer: Zarnitsa local build <root@localhost>
+Installed-Size: @INSTALLED_SIZE@
+Depends: libc6 (>= 2.28), @ASTRA_BASE_MINIMUM_DEPENDS@, bash, coreutils, findutils, grep, sed
+Description: Зарница — автономный комплект мониторинга сети для Astra Linux 1.7
+ Программа с собственным Qt 5.15 runtime, плагинами, библиотеками и исходниками.
+ Файлы dpkg находятся в /opt/zarnitsa-deb, запуск — /usr/bin/zarnitsa.
+ Системная glibc и базовые утилиты ОС не заменяются. Qt dev/toolchain не включены.
+ Минимальные версии системных Astra-пакетов основаны на bundled smoke Astra 1.7.6.
+ МКЦ/file capabilities с sudo на живой Astra 1.7.6 не проверялись.
+ Не устанавливайте одновременно с tar-раскладкой; удаление — dpkg, не uninstall.sh.

@@ -1,0 +1,14 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/">
+    <file>fonts/GolosText-Regular.ttf</file>
+    <file>fonts/GolosText-Medium.ttf</file>
+    <file>fonts/GolosText-SemiBold.ttf</file>
+    <file>fonts/GolosText-Bold.ttf</file>
+    <file>fonts/JetBrainsMonoNL-Regular.ttf</file>
+    <file>fonts/JetBrainsMonoNL-Medium.ttf</file>
+    <file>fonts/JetBrainsMonoNL-Bold.ttf</file>
+    <file>licenses/GolosText-OFL.txt</file>
+    <file>licenses/JetBrainsMono-OFL.txt</file>
+  </qresource>
+</RCC>

@@ -1,0 +1,18 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Зарница
+Name[ru]=Зарница
+GenericName=Мониторинг сети
+GenericName[ru]=Мониторинг сети
+Comment=Проверка доступности узлов и сетевых служб
+Comment[ru]=Проверка доступности узлов и сетевых служб
+Exec=@ZARNITSA_EXEC@
+TryExec=@ZARNITSA_TRY_EXEC@
+Icon=zarnitsa
+Terminal=false
+Categories=Network;Monitor;
+StartupNotify=true
+StartupWMClass=zarnitsa
+X-Zarnitsa-Managed=true
+X-Zarnitsa-InstallRoot=@ZARNITSA_ROOT@

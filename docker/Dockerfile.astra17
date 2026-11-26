@@ -1,0 +1,17 @@
+# Сборочный и испытательный образ Зарницы: официальная Astra Linux SE 1.7 (ubi17),
+# системный Qt 5.15.2, gcc 8.3, glibc 2.28 — те же библиотеки, что на рабочих местах.
+FROM registry.astralinux.ru/library/astra/ubi17:latest
+
+ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      build-essential cmake ninja-build pkg-config \
+      qtbase5-dev qtbase5-dev-tools libqt5network5 libqt5widgets5 libqt5gui5 \
+      libcap2-bin iputils-ping traceroute netcat-openbsd \
+      fontconfig fonts-dejavu-core file binutils ca-certificates curl \
+      python3 openssl dpkg-dev fakeroot sudo procps iproute2 \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd -m -u 1000 -s /bin/bash astra
+
+WORKDIR /src
