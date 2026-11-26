@@ -647,9 +647,10 @@ try:
     for name in ("LICENSE", "README.md", "ИНСТРУКЦИЯ.txt"):
         if (SOURCE / name).is_file():
             plain_copy(SOURCE / name, stage / name)
-    preview = Path("docs/zarnitsa.png")
-    if (SOURCE / preview).is_file():
-        plain_copy(SOURCE / preview, stage / preview)
+    for name in ("docs/zarnitsa.png", "docs/download-astra.svg"):
+        preview = Path(name)
+        if (SOURCE / preview).is_file():
+            plain_copy(SOURCE / preview, stage / preview)
     plain_copy(SOURCE / "packaging/third-party-notices.txt", stage / "THIRD-PARTY-NOTICES.txt")
     text(stage / "VERSION.txt", "VERSION={}\nREVISION={}\nBUILD_DATE={}\n".format(VERSION, REVISION, BUILD_DATE))
 

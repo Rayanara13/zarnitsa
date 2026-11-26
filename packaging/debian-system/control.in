@@ -1,0 +1,15 @@
+Package: zarnitsa
+Version: @VERSION@
+Section: net
+Priority: optional
+Architecture: @ARCH@
+Maintainer: Rayanara13 <stefanvoskres@gmail.com>
+Installed-Size: @INSTALLED_SIZE@
+Depends: @DEPENDS@
+Description: Зарница — мониторинг сети с системным Qt для Astra Linux
+ Программа использует Qt и библиотеки операционной системы, без bundled runtime.
+ Запуск — /usr/bin/zarnitsa, программа и ICMP-помощник — /usr/lib/zarnitsa.
+ Только отдельный ICMP-помощник может получать cap_net_raw; Qt работает без прав.
+ Если file capabilities недоступны, режим ICMP auto использует штатный ping.
+ Пакет заменяет предыдущий zarnitsa; пользовательские настройки и данные
+ в ~/.config/zarnitsa и ~/.local/share/zarnitsa не принадлежат dpkg.

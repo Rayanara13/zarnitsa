@@ -12,6 +12,7 @@ endif()
 
 option(ZARNITSA_TESTS "Собирать тесты" ON)
 option(ZARNITSA_GUI "Собирать окно (Qt Widgets)" ON)
+option(ZARNITSA_STATIC_HELPER "Статический ICMP-помощник для полного офлайн-комплекта" ON)
 
 find_package(Qt5 5.15 REQUIRED COMPONENTS Core Network)
 if(ZARNITSA_GUI)
@@ -47,10 +48,12 @@ target_include_directories(zarnitsa_core PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_compile_definitions(zarnitsa_core PUBLIC ZARNITSA_VERSION="${PROJECT_VERSION}" QT_DEPRECATED_WARNINGS)
 target_link_libraries(zarnitsa_core PUBLIC Qt5::Core Qt5::Network)
 
-# Помощник ICMP: без Qt и статически — его подписывают и выдают cap_net_raw отдельно.
+# Помощник ICMP не зависит от Qt; публичный system-Qt пакет использует системную libc.
 add_executable(zarnitsa-icmp src/icmp/helper_main.cpp src/icmp/icmp_packet.cpp)
 target_include_directories(zarnitsa-icmp PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_link_options(zarnitsa-icmp PRIVATE -static)
+if(ZARNITSA_STATIC_HELPER)
+  target_link_options(zarnitsa-icmp PRIVATE -static)
+endif()
 
 if(ZARNITSA_GUI)
   file(GLOB UI_SOURCES CONFIGURE_DEPENDS src/ui/*.cpp src/ui/*.h)

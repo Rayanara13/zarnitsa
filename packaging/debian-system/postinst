@@ -1,0 +1,161 @@
+#!/bin/bash
+# Только нативный dpkg-payload. Full-kit configure-icmp/static guard не используется.
+set -euo pipefail
+case "${1:-}" in
+    configure) ;;
+    *) exit 0 ;;
+esac
+
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+# До первой внешней команды удаляем настройки чужого динамического загрузчика.
+for name in "${!LD_@}" "${!QT_@}" "${!QML_@}" "${!QML2_@}"; do
+    [[ -z $name ]] || unset "$name"
+done
+unset GCONV_PATH LOCPATH GLIBC_TUNABLES BASH_ENV ENV
+export LC_ALL=C
+
+zr_error() { printf 'Ошибка: %s\n' "$*" >&2; }
+zr_die() { zr_error "$*"; exit 1; }
+zr_warn() { printf 'Предупреждение: %s\n' "$*" >&2; }
+zr_fallback() {
+    zr_warn "$*"
+    zr_warn 'ICMP в режиме auto использует штатный системный ping с его разрешениями. Qt остаётся без capabilities; sysctl, firewall и setuid не менялись.'
+}
+
+(( EUID == 0 )) || zr_die 'postinst configure должен выполнять dpkg от root.'
+ZR_STAT=/usr/bin/stat
+ZR_READLINK=/usr/bin/readlink
+ZR_SHA256SUM=/usr/bin/sha256sum
+
+# Как zr_secure_path полного комплекта, но проверяем и каждый исходный компонент,
+# и цели root-owned ссылок (включая /bin -> /usr/bin), а не только итоговый realpath.
+zr_secure_path() {
+    local path=$1 depth=${2:-0} uid mode metadata target
+    [[ $path == /* && $path != *$'\n'* && $path != *$'\r'* && $path != *$'\t'* && $path != *'\'* ]] || {
+        zr_error "Недопустимый системный путь: $path"; return 1;
+    }
+    (( depth < 40 )) || { zr_error 'Слишком много символических ссылок в системном пути'; return 1; }
+    while [[ $path != / && $path == */ ]]; do path=${path%/}; done
+    while :; do
+        [[ -e $path || -L $path ]] || { zr_error "Нет системного пути: $path"; return 1; }
+        metadata=$("$ZR_STAT" -c '%u %a' -- "$path") || return 1
+        read -r uid mode <<< "$metadata"
+        [[ $uid == 0 && $mode =~ ^[0-7]{1,4}$ ]] || { zr_error "Путь не принадлежит root: $path"; return 1; }
+        if [[ -L $path ]]; then
+            # Права 0777 самой ссылки не используются; проверяем владельца и всю цель.
+            target=$("$ZR_READLINK" -- "$path") || return 1
+            [[ $target == /* ]] || target=${path%/*}/$target
+            zr_secure_path "$target" "$((depth + 1))" || return 1
+        elif (( (8#$mode & 0022) != 0 )); then
+            zr_error "Путь доступен для записи группе/остальным: $path"; return 1
+        fi
+        [[ $path == / ]] && break
+        path=${path%/*}; [[ -n $path ]] || path=/
+    done
+}
+
+zr_native_tool() {
+    local name=$1 dir resolved
+    case $name in getcap|setcap) ;; *) return 2 ;; esac
+    for dir in /usr/sbin /usr/bin /sbin /bin; do
+        if [[ -e $dir/$name || -L $dir/$name ]]; then
+            [[ -f $dir/$name && -x $dir/$name ]] || { zr_error "Некорректный системный инструмент: $dir/$name"; return 2; }
+            zr_secure_path "$dir/$name" || return 2
+            resolved=$("$ZR_READLINK" -f -- "$dir/$name") || return 2
+            printf '%s\n' "$resolved"
+            return 0
+        fi
+    done
+    return 1
+}
+
+zr_regular_executable() {
+    local file=$1
+    [[ -f $file && ! -L $file && -x $file ]] || { zr_error "Ожидался обычный исполняемый файл без ссылки: $file"; return 1; }
+    zr_secure_path "$file" || return 1
+    [[ $("$ZR_STAT" -c '%h' -- "$file") == 1 ]] || { zr_error "У файла несколько жёстких ссылок: $file"; return 1; }
+    [[ ! -u $file && ! -g $file ]] || { zr_error "У файла есть setuid/setgid: $file"; return 1; }
+}
+
+zr_verify_digest() {
+    local file=$1 expected=$2 actual
+    [[ $expected =~ ^[0-9a-f]{64}$ ]] || { zr_error 'В пакет не встроен SHA256 финального ELF-payload'; return 1; }
+    actual=$("$ZR_SHA256SUM" -- "$file") || return 1
+    [[ ${actual%% *} == "$expected" ]] || { zr_error "SHA256 не совпал с прошедшим ELF-аудит файлом: $file"; return 1; }
+}
+
+zr_caps() {
+    local file=$1
+    ZR_CAPS=$("$ZR_GETCAP" "$file" 2>&1) || { zr_error "Не удалось проверить capabilities $file: $ZR_CAPS"; return 1; }
+}
+
+zr_exact_helper_caps() {
+    # libcap разных версий печатает «=ep» либо « = ...+ep»; лишние биты запрещены.
+    # Plain getcap скрывает rootid: exact принимается ТОЛЬКО после свежего rc0
+    # setcap, когда ядро назначило rootid текущего namespace. Старые caps не годятся.
+    [[ $1 == "$helper cap_net_raw=ep" || $1 == "$helper = cap_net_raw+ep" ||
+       $1 == "$helper cap_net_raw+ep" || $1 == "$helper = cap_net_raw=ep" ]]
+}
+
+zr_clear_helper_caps() {
+    # После ошибки назначения или чужого набора допустим только доказанный ноль.
+    "$ZR_SETCAP" -r "$helper" || :
+    zr_caps "$helper" || return 1
+    [[ -z $ZR_CAPS ]] || { zr_error 'Не удалось подтвердить отсутствие capabilities ICMP-помощника после снятия'; return 1; }
+}
+
+for tool in "$ZR_STAT" "$ZR_READLINK" "$ZR_SHA256SUM"; do
+    [[ -f $tool && -x $tool ]] || zr_die "Нет системной coreutils-команды: $tool"
+    zr_secure_path "$tool" || exit 1
+done
+app=/usr/lib/zarnitsa/zarnitsa
+helper=/usr/lib/zarnitsa/zarnitsa-icmp
+zr_regular_executable /usr/bin/zarnitsa || exit 1
+zr_regular_executable "$app" || exit 1
+zr_regular_executable "$helper" || exit 1
+# Builder аудирует ELF (динамический glibc/stdc++ helper, без Qt/RPATH/RUNPATH)
+# и подставляет SHA256 ПОСЛЕ strip. Ни ldd, ни запуск ELF от root здесь не нужны.
+zr_verify_digest "$app" '@APP_SHA256@' || exit 1
+zr_verify_digest "$helper" '@HELPER_SHA256@' || exit 1
+
+# Без getcap невозможно доказать отсутствие прав у Qt: это не безопасный fallback.
+ZR_GETCAP=$(zr_native_tool getcap) || zr_die 'Нет доверенного системного getcap; отсутствие capabilities Qt не проверено. Нужен libcap2-bin.'
+zr_caps "$app" || exit 1
+[[ -z $ZR_CAPS ]] || zr_die 'У Qt-программы есть capabilities. Отказ: права Qt не назначаются и автоматически не исправляются.'
+zr_caps "$helper" || exit 1
+previous_caps=$ZR_CAPS
+if ZR_SETCAP=$(zr_native_tool setcap); then
+    :
+else
+    status=$?
+    (( status == 1 )) || zr_die 'Системный setcap найден, но не прошёл проверку доверенности.'
+    [[ -z $previous_caps ]] || zr_die 'У ICMP-помощника есть capabilities, а доверенный setcap для обязательной перезаписи отсутствует.'
+    zr_fallback 'Системный setcap недоступен; ICMP-помощник остаётся без capabilities.'
+    exit 0
+fi
+
+# ВСЕГДА перезаписываем весь набор через «=ep», даже если plain getcap уже exact:
+# старый набор может иметь скрытый rootid. Только rc0 свежей записи исправляет его.
+setcap_status=0
+"$ZR_SETCAP" cap_net_raw=ep "$helper" || setcap_status=$?
+if (( setcap_status != 0 )); then
+    zr_clear_helper_caps || zr_die 'setcap завершился ошибкой, а отсутствие capabilities помощника после снятия не подтверждено.'
+    zr_caps "$app" || exit 1
+    [[ -z $ZR_CAPS ]] || zr_die 'После настройки у Qt обнаружены capabilities; настройка отклонена.'
+    zr_fallback 'setcap завершился ошибкой; capabilities ICMP-помощника сняты, их отсутствие подтверждено.'
+    exit 0
+fi
+if ! zr_caps "$helper"; then
+    zr_clear_helper_caps || :
+    zr_die 'После setcap нельзя проверить результат; настройка ICMP отклонена.'
+fi
+if zr_exact_helper_caps "$ZR_CAPS"; then
+    zr_caps "$app" || exit 1
+    [[ -z $ZR_CAPS ]] || zr_die 'После настройки у Qt обнаружены capabilities; настройка отклонена.'
+    printf '%s\n' 'Зарница: cap_net_raw=ep только у ICMP-помощника; Qt без capabilities.'
+elif [[ -z $ZR_CAPS ]]; then
+    zr_fallback 'Файловые capabilities не назначены или не поддерживаются; у ICMP-помощника нет capabilities.'
+else
+    zr_clear_helper_caps || zr_die 'Небезопасный результат setcap: посторонние capabilities не удалось снять.'
+    zr_die 'После setcap получен не точный cap_net_raw=ep. Посторонние capabilities сняты, configure отклонён.'
+fi
