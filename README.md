@@ -1,5 +1,9 @@
 # Зарница
 
+[![Скачать для Astra](docs/download-astra.svg)](https://github.com/Rayanara13/zarnitsa/releases/latest/download/Zarnitsa_Astra_amd64.deb)
+
+Astra Linux 1.7 · x86_64 · системный Qt 5.15
+
 Нативный сетевой монитор для Astra Linux на Qt 5.15. Работает самостоятельно и с источниками адресов Инея и Росы.
 
 ![Зарница](docs/zarnitsa.png)
@@ -22,5 +26,3 @@ cmake --build build --parallel
 Для демонстрации: `./build/zarnitsa --demo`. Данные в ней синтетические.
 
 [Инструкция](ИНСТРУКЦИЯ.txt) · [Условия использования](LICENSE) · [Лицензии шрифтов](resources/licenses)
-
-В репозитории — исходники. Готовые пакеты с Qt runtime пока не публикуются.
